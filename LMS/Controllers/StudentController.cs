@@ -75,7 +75,16 @@ namespace LMS.Controllers
                 join s in db.Semester on cl.SemesterId equals s.SemesterId
                 where e.SId == uid
                 select new
-            return Json(null);
+                { 
+                subject = c.DeptAbbr,
+                number = c.Number,
+                name = c.Name,
+                season = s.Season,
+                year = s.Year,
+                grade = e.Grade
+                };
+
+            return Json(query.ToArray());
         }
 
         /// <summary>
