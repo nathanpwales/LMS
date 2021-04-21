@@ -47,7 +47,7 @@ namespace LMS.Controllers
                   where cor.DeptAbbr == subject
                   select new
                   {
-                      number = cor.CourseId,
+                      number = cor.Number,
                       name = cor.Name
                   };
 
@@ -136,7 +136,84 @@ namespace LMS.Controllers
         public IActionResult CreateClass(string subject, int number, string season, int year, DateTime start, DateTime end, string location, string instructor)
         {
 
-            return Json(new { success = false });
+            //Check if the course already exists that semester
+            var query =
+                from c in db.Course
+                join cl in db.Class on c.CourseId equals cl.CourseId
+                join s in db.Semester on cl.SemesterId equals s.SemesterId
+                where c.DeptAbbr == subject & c.Number == number & s.Season == season & s.Year == year
+                select c.Name;
+
+
+            if (query.ToArray().Length > 0)
+            {
+                return Json(new { success = false });
+            }
+
+            //check if the course overlaps with another course
+           var query2 =
+                from cl in db.Class
+                join s in db.Semester on cl.SemesterId equals s.SemesterId
+                where s.Season == season & s.Year == year & cl.Location == location & 
+                ((TimeSpan.Compare(cl.Start, end.TimeOfDay) <= 0 & TimeSpan.Compare(cl.Start, start.TimeOfDay) >= 0) | (TimeSpan.Compare(cl.End, end.TimeOfDay) <= 0 & TimeSpan.Compare(cl.End, start.TimeOfDay) >= 0))
+                select cl.Course;
+
+
+            if (query2.ToArray().Length > 0)
+            {
+                return Json(new { success = false });
+            }
+
+            //find the semester id
+            uint sem = 0;
+
+            var query3 =
+                 (from s in db.Semester
+                  where s.Season == season & s.Year == year
+                  select s.SemesterId).Take(1);
+
+            if (query3.ToArray().Length == 0)
+            {
+                // if semester id doesn't exist, create it (this was due to our poor implementation of the database)
+                Semester nSem = new Semester();
+                nSem.Season = season;
+                nSem.Year = (uint)year;
+                db.Semester.Add(nSem);
+                db.SaveChanges();
+
+                var query3_5 =
+                    (from s in db.Semester
+                    where s.Season == season & s.Year == year
+                    select s.SemesterId).Take(1);
+
+
+                sem = query3_5.ToArray()[0];
+
+            }
+            else
+            {
+                sem = query3.ToArray()[0];
+            }
+
+            //find the courseID (this assumes it exists)
+            var query4 =
+                from c in db.Course
+                where c.DeptAbbr == subject & c.Number == number
+                select c.CourseId;
+
+
+            //create and add the class
+            Class newClass = new Class();
+            newClass.Start = start.TimeOfDay;
+            newClass.End = end.TimeOfDay;
+            newClass.Location = location;
+            newClass.SemesterId = sem;
+            newClass.CourseId = query4.ToArray()[0];
+            newClass.Professor = instructor;
+            db.Class.Add(newClass);
+            db.SaveChanges();
+
+            return Json(new { success = true });
         }
 
 
