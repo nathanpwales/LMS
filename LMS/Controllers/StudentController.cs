@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using LMS.Models.LMSModels;
+using LMS.Models.LMSModels.Submission;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -103,8 +105,24 @@ namespace LMS.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetAssignmentsInClass(string subject, int num, string season, int year, string uid)
         {
+            var query =
+                from s in db.Semester
+                join cl in db.Class on s.SemesterId equals cl.SemesterId
+                join c in db.Course on cl.CourseId equals c.CourseId
+                join ac in db.AssignmentCategory on cl.ClassId equals ac.ClassId
+                join a in db.Assignment on ac.AssnCategoryId equals a.AssnCategoryId
+                join e in db.Enrolled on cl.ClassId equals e.ClassId
+                join sub in db.Submission on a.AssnId equals sub.AssnId
+                where s.Year == year & s.Season == season & c.DeptAbbr == subject & c.Number == num & e.SId == uid
+                select new
+                {
+                    aname = a.Name,
+                    cname = ac.Name,
+                    due = a.DueDate,
+                    score = sub.Score
+                };
 
-            return Json(null);
+            return Json(query.ToArray());
         }
 
 
@@ -130,6 +148,9 @@ namespace LMS.Controllers
         public IActionResult SubmitAssignmentText(string subject, int num, string season, int year,
           string category, string asgname, string uid, string contents)
         {
+            Submission newSub = new Submission();
+
+
 
             return Json(new { success = false });
         }
