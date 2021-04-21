@@ -486,13 +486,13 @@ namespace LMS.Controllers
         public string CreateNewUser(string fName, string lName, DateTime DOB, string SubjectAbbrev, string role)
         {
             string uid = "u0000001";
-            System.Diagnostics.Debug.WriteLine("yeet");
+
             var query =
                 (((from s in db.Student orderby s.SId descending select new { id = s.SId }).Take(1))
                 .Concat((from p in db.Professor orderby p.UId descending select new { id = p.UId }).Take(1))
                 .Concat((from a in db.Admin orderby a.UId descending select new { id = a.UId }).Take(1)));
 
-            System.Diagnostics.Debug.WriteLine("yoot");
+
 
 
             int max = 0;
@@ -506,16 +506,15 @@ namespace LMS.Controllers
                     max = uIDNumber;
             }
 
-            System.Diagnostics.Debug.WriteLine("yo");
+
 
             uid = max.ToString();
             while (uid.Length < 7)
             {
                 uid = "0" + uid;
-                System.Diagnostics.Debug.WriteLine(uid);
             }
             uid = "u" + uid;
-            System.Diagnostics.Debug.WriteLine(uid);
+
 
 
             switch (role)
