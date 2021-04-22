@@ -485,8 +485,10 @@ namespace LMS.Controllers
         /// <returns>A unique uID that is not be used by anyone else</returns>
         public string CreateNewUser(string fName, string lName, DateTime DOB, string SubjectAbbrev, string role)
         {
+            // initial uid if the query does not find any existing uids.
             string uid = "u0000001";
 
+            // query the database for the greatest uid in each of the 3 tables.
             var query =
                 (((from s in db.Student orderby s.SId descending select new { id = s.SId }).Take(1))
                 .Concat((from p in db.Professor orderby p.UId descending select new { id = p.UId }).Take(1))
@@ -494,7 +496,7 @@ namespace LMS.Controllers
 
 
 
-
+            // find max uid number between the quantity of 0-3 results of the above query.
             int max = 0;
             foreach (var v in query.ToArray())
             {
@@ -507,7 +509,7 @@ namespace LMS.Controllers
             }
 
 
-
+            // Insert 0's into the uid to make it 8 chars in lengths.
             uid = max.ToString();
             while (uid.Length < 7)
             {
@@ -516,7 +518,7 @@ namespace LMS.Controllers
             uid = "u" + uid;
 
 
-
+            // create new user depending on whether it is a Admin, Professor, or Student.
             switch (role)
             {
                 case "Administrator":
@@ -526,7 +528,7 @@ namespace LMS.Controllers
                     newAdmin.LName = lName;
                     newAdmin.Dob = DOB;
                     db.Admin.Add(newAdmin);
-                    db.SaveChanges();
+
                     break;
                 case "Professor":
                     Professor prof = new Professor();
@@ -536,7 +538,6 @@ namespace LMS.Controllers
                     prof.Dob = DOB;
                     prof.DeptAbbr = SubjectAbbrev;
                     db.Professor.Add(prof);
-                    db.SaveChanges();
                     break;
                 case "Student":
                     Student student = new Student();
@@ -546,11 +547,20 @@ namespace LMS.Controllers
                     student.Dob = DOB;
                     student.Major = SubjectAbbrev;
                     db.Student.Add(student);
-                    db.SaveChanges();
                     break;
                 default:
                     Console.WriteLine("Role not found: " + role);
                     break;
+            }
+            // try saving new user to db.
+            try
+            {
+                db.SaveChanges();
+            }
+            catch (Exception e)
+            {
+                // db could not save new user. Recursively try again to find available uid.
+                uid = CreateNewUser(fName, lName, DOB, SubjectAbbrev, role);
             }
 
             return uid;

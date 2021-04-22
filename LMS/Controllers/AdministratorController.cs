@@ -41,7 +41,7 @@ namespace LMS.Controllers
     /// <returns>The JSON result</returns>
     public IActionResult GetCourses(string subject)
     {
-
+            // Query for the courses in a given department
             var query =
                   from cor in db.Course
                   where cor.DeptAbbr == subject
@@ -71,6 +71,7 @@ namespace LMS.Controllers
         /// <returns>The JSON result</returns>
         public IActionResult GetProfessors(string subject)
         {
+            // Query for the professors in a given department
             var query =
                 from p in db.Professor
                 where p.DeptAbbr == subject
@@ -96,24 +97,35 @@ namespace LMS.Controllers
         /// false if the Course already exists.</returns>
         public IActionResult CreateCourse(string subject, int number, string name)
         {
+            // Query to check if a duplicate course already exists.
             var query =
                 from c in db.Course
                 where c.DeptAbbr == subject & c.Number == number
                 select c.Name;
 
+            // Return false if the query above found a duplicate course.
             if(query.ToArray().Length > 0)
             {
                 return Json(new { success = false });
             }
 
+            // Create a new course with the given parameters
             Course newCourse = new Course();
             newCourse.DeptAbbr = subject;
             newCourse.Number = (uint)number;
             newCourse.Name = name;
             db.Course.Add(newCourse);
-            db.SaveChanges();
+            try
+            {
+                db.SaveChanges();
+                return Json(new { success = true });
+            }
+            catch(Exception e)
+            {
+                // failed to save changes. Proceed to return false.
+            }
+            return Json(new { success = false });
 
-            return Json(new { success = true });
         }
 
 
@@ -144,7 +156,7 @@ namespace LMS.Controllers
                 where c.DeptAbbr == subject & c.Number == number & s.Season == season & s.Year == year
                 select c.Name;
 
-
+            // Return false if duplicate class already exists.
             if (query.ToArray().Length > 0)
             {
                 return Json(new { success = false });
@@ -158,7 +170,7 @@ namespace LMS.Controllers
                 ((TimeSpan.Compare(cl.Start, end.TimeOfDay) <= 0 & TimeSpan.Compare(cl.Start, start.TimeOfDay) >= 0) | (TimeSpan.Compare(cl.End, end.TimeOfDay) <= 0 & TimeSpan.Compare(cl.End, start.TimeOfDay) >= 0))
                 select cl.Course;
 
-
+            // return false if overlap
             if (query2.ToArray().Length > 0)
             {
                 return Json(new { success = false });
@@ -174,7 +186,7 @@ namespace LMS.Controllers
 
             if (query3.ToArray().Length == 0)
             {
-                // if semester id doesn't exist, create it (this was due to our poor implementation of the database)
+                // if semester id doesn't exist, create it (this was due to our Boyce-Codd Normal Form implementation of the database)
                 Semester nSem = new Semester();
                 nSem.Season = season;
                 nSem.Year = (uint)year;
