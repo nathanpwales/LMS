@@ -124,8 +124,8 @@ namespace LMS.Controllers
                     dob = s.Dob,
                     grade = e.Grade
                 };
-    
-      return Json(query.ToArray());
+
+            return Json(query.ToArray());
         }
 
 
@@ -236,7 +236,7 @@ namespace LMS.Controllers
                 join sm in db.Semester on cl.SemesterId equals sm.SemesterId
                 where cr.DeptAbbr == subject && cr.Number == num && sm.Season == season && sm.Year == year
                 select cl.ClassId;
-          
+
             uint classID = queryForClassID.First();
 
             // Create the new Assignment category with the specified name/weight and the ClassID from above.
@@ -253,7 +253,7 @@ namespace LMS.Controllers
 
                 return Json(new { success = true });
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 System.Diagnostics.Debug.WriteLine(e.Message);
             }
@@ -289,7 +289,7 @@ namespace LMS.Controllers
                 select ac.Name;
 
             // if the above query found a duplicate assignment, return false.
-            if(query.ToArray().Length > 0)
+            if (query.ToArray().Length > 0)
             {
                 return Json(new { success = false });
             }
@@ -301,9 +301,13 @@ namespace LMS.Controllers
                 join sm in db.Semester on cl.SemesterId equals sm.SemesterId
                 join ac in db.AssignmentCategory on cl.ClassId equals ac.ClassId
                 where cr.DeptAbbr == subject && cr.Number == num && sm.Season == season && sm.Year == year && ac.Name == category
-                select ac.AssnCategoryId;
+                select new
+                {
+                    category = ac.AssnCategoryId,
+                    classID = ac.ClassId
+                };
 
-            uint categoryID = queryForAssnCatID.First();
+            uint categoryID = queryForAssnCatID.First().category;
             
             // Create the new assignment with the name/maxpoints/dueDate given as input parameters.
             // CategoryID from above query.
@@ -313,11 +317,16 @@ namespace LMS.Controllers
             newAssn.DueDate = asgdue;
             newAssn.Contents = asgcontents;
             newAssn.AssnCategoryId = categoryID;
+            db.Assignment.Add(newAssn);
+
+            
 
             // only return true if the addition saves successfully.
             try
             {
-                db.Assignment.Add(newAssn);
+                
+                db.SaveChanges();
+                UpdateAllGradesForClass(queryForAssnCatID.First().classID);
                 db.SaveChanges();
                 return Json(new { success = true });
             }
@@ -328,6 +337,8 @@ namespace LMS.Controllers
             // return false if the try failed.Changes were not saved successfully to db.
             return Json(new { success = false });
         }
+
+        
 
 
         /// <summary>
@@ -358,7 +369,7 @@ namespace LMS.Controllers
                 join cr in db.Course on cl.CourseId equals cr.CourseId
                 join ac in db.AssignmentCategory on cl.ClassId equals ac.ClassId
                 join ag in db.Assignment on ac.AssnCategoryId equals ag.AssnCategoryId
-                join sb in db.Submission on ag.AssnId equals sb.AssnId 
+                join sb in db.Submission on ag.AssnId equals sb.AssnId
                 join sm in db.Semester on cl.SemesterId equals sm.SemesterId
                 join st in db.Student on sb.SId equals st.SId
                 where cr.DeptAbbr == subject & cr.Number == num & sm.Season == season & sm.Year == year & ac.Name == category & ag.Name == asgname
@@ -409,21 +420,20 @@ namespace LMS.Controllers
 
 
             // if this submission was not found, or if duplicate submissions are found, return false.
-            if (query.ToArray().Length != 1 )
+            if (query.ToArray().Length != 1)
             {
                 return Json(new { success = false });
             }
 
-            // Update score to score given as method parameter
-            foreach (var v in query)
-            {
-                v.subm.Score = (uint)score;
-                UpdateOverallGrade(v.cID, uid);
-            }
+            
 
             // only return true if changes save successfully.
             try
             {
+                // Update score to score given as method parameter
+                query.First().subm.Score = (uint)score;
+                db.SaveChanges();
+                UpdateOverallGrade(query.First().cID, uid);
                 db.SaveChanges();
                 return Json(new { success = true });
             }
@@ -481,12 +491,12 @@ namespace LMS.Controllers
                 join e in db.Enrolled on ac.ClassId equals e.ClassId
                 where e.SId == uid & ac.ClassId == classId
                 select new
-                { 
+                {
                     enrollment = e,
                     catName = ac.Name,
                     catWeight = ac.Weight,
                     maxPoints = a.MaxPoints,
-                    points = q1 == null ? null: (uint?)q1.Score,
+                    points = q1 == null ? null : (uint?)q1.Score,
 
                 };
 
@@ -496,15 +506,15 @@ namespace LMS.Controllers
 
             uint catSum = 0;
 
-            foreach(var v in query)
+            foreach (var v in query)
             {
-                if(!catWeights.ContainsKey(v.catName))
+                if (!catWeights.ContainsKey(v.catName))
                 {
                     catWeights.Add(v.catName, v.catWeight);
                     catSum += v.catWeight;
                 }
 
-                if(totalCatPoints.ContainsKey(v.catName))
+                if (totalCatPoints.ContainsKey(v.catName))
                 {
                     totalCatPoints[v.catName] += v.maxPoints;
                 }
@@ -515,36 +525,88 @@ namespace LMS.Controllers
 
                 if (earnedCatPoints.ContainsKey(v.catName))
                 {
-                    if(v.points != null)
+                    if (v.points != null)
                         earnedCatPoints[v.catName] += v.points;
                 }
                 else
                 {
-                    if(v.points != null)
+                    if (v.points != null)
                         earnedCatPoints.Add(v.catName, v.points);
                     else
                         earnedCatPoints.Add(v.catName, 0);
-                    
+
                 }
 
             }
 
             Dictionary<string, decimal?> catPercents = new Dictionary<string, decimal?>();
 
-            foreach( KeyValuePair <string, uint> v in totalCatPoints )
+            foreach (KeyValuePair<string, uint> v in totalCatPoints)
             {
+                
+                catPercents.Add(v.Key, (decimal?)earnedCatPoints[v.Key] / (decimal?)totalCatPoints[v.Key]);
 
-                catPercents.Add(v.Key, earnedCatPoints[v.Key] / (decimal?)totalCatPoints[v.Key]);
             }
 
             decimal? sum = 0;
 
             foreach (KeyValuePair<string, decimal?> v in catPercents)
             {
-                sum += v.Value * (catWeights[v.Key] / catSum);
+                
+                sum += v.Value * (catWeights[v.Key] / (decimal?)catSum);
+                    
             }
 
+            sum *= 100;
+            string letterGrade = "E";
 
+            System.Diagnostics.Debug.WriteLine("yo");
+            System.Diagnostics.Debug.WriteLine(sum);
+            if (sum >= 93)
+                letterGrade = "A";
+            else if (sum >= 90)
+                letterGrade = "A-";
+            else if (sum >= 87)
+                letterGrade = "B+";
+            else if (sum >= 83)
+                letterGrade = "B";
+            else if (sum >= 80)
+                letterGrade = "B-";
+            else if (sum >= 77)
+                letterGrade = "C+";
+            else if (sum >= 73)
+                letterGrade = "C";
+            else if (sum >= 70)
+                letterGrade = "C-";
+            else if (sum >= 67)
+                letterGrade = "D+";
+            else if (sum >= 63)
+                letterGrade = "D";
+            else if (sum >= 60)
+                letterGrade = "D-";
+            else
+                letterGrade = "E";
+
+            Enrolled newEnroll = query.First().enrollment;
+
+            newEnroll.Grade = letterGrade;
+
+            // db.SaveChanges called after helper method is called.
+
+
+        }
+
+        private void UpdateAllGradesForClass(uint classID)
+        {
+            var query =
+                from e in db.Enrolled
+                where e.ClassId == classID
+                select e.SId;
+
+            foreach (string uid in query)
+            {
+                UpdateOverallGrade(classID, uid);
+            }
         }
 
         /*******End code to modify********/
