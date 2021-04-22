@@ -481,6 +481,7 @@ namespace LMS.Controllers
 
         private void UpdateOverallGrade(uint classId, string uid)
         {
+            // query to get info needed
             var query =
 
                 from a in db.Assignment
@@ -500,20 +501,30 @@ namespace LMS.Controllers
 
                 };
 
+            // dictionary to keep track of all points in category
             Dictionary<string, uint> totalCatPoints = new Dictionary<string, uint>();
-            Dictionary<string, uint?> earnedCatPoints = new Dictionary<string, uint?>();
-            Dictionary<string, uint> catWeights = new Dictionary<string, uint>();
 
+            //keep track of points earned in a category
+
+            Dictionary<string, uint?> earnedCatPoints = new Dictionary<string, uint?>();
+
+            //keep track of weights of each category
+            Dictionary<string, uint> catWeights = new Dictionary<string, uint>();
+            
+            //total sum of all the category weights
             uint catSum = 0;
 
+            //add up the sum points of each category, the points earned in each category, and keep track of the weight (fill in the dictionary)
             foreach (var v in query)
             {
+                //add weight to dictionary
                 if (!catWeights.ContainsKey(v.catName))
                 {
                     catWeights.Add(v.catName, v.catWeight);
                     catSum += v.catWeight;
                 }
 
+                //sum total points in each category
                 if (totalCatPoints.ContainsKey(v.catName))
                 {
                     totalCatPoints[v.catName] += v.maxPoints;
@@ -523,6 +534,7 @@ namespace LMS.Controllers
                     totalCatPoints.Add(v.catName, v.maxPoints);
                 }
 
+                //sum earned points in each category 
                 if (earnedCatPoints.ContainsKey(v.catName))
                 {
                     if (v.points != null)
@@ -539,17 +551,19 @@ namespace LMS.Controllers
 
             }
 
+            //store the percent earned
             Dictionary<string, decimal?> catPercents = new Dictionary<string, decimal?>();
 
             foreach (KeyValuePair<string, uint> v in totalCatPoints)
             {
-                
+                //store the percent earned of each category
                 catPercents.Add(v.Key, (decimal?)earnedCatPoints[v.Key] / (decimal?)totalCatPoints[v.Key]);
 
             }
 
             decimal? sum = 0;
 
+            //sum up the points base on percent of points earned times the ratio of category weight/total weight
             foreach (KeyValuePair<string, decimal?> v in catPercents)
             {
                 
@@ -557,11 +571,9 @@ namespace LMS.Controllers
                     
             }
 
-            sum *= 100;
+            sum *= 100; //account for our stupdity, make it between 0 and 1000
             string letterGrade = "E";
 
-            System.Diagnostics.Debug.WriteLine("yo");
-            System.Diagnostics.Debug.WriteLine(sum);
             if (sum >= 93)
                 letterGrade = "A";
             else if (sum >= 90)
@@ -587,6 +599,7 @@ namespace LMS.Controllers
             else
                 letterGrade = "E";
 
+            //update the grade
             Enrolled newEnroll = query.First().enrollment;
 
             newEnroll.Grade = letterGrade;
@@ -598,11 +611,14 @@ namespace LMS.Controllers
 
         private void UpdateAllGradesForClass(uint classID)
         {
+
+            //get every student in a given class
             var query =
                 from e in db.Enrolled
                 where e.ClassId == classID
                 select e.SId;
-
+            
+            //update the grades for each one
             foreach (string uid in query)
             {
                 UpdateOverallGrade(classID, uid);
