@@ -88,8 +88,29 @@ namespace LMS.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetCatalog()
         {
+            var query =
+                from d in db.Department
+                select d;
 
-            return Json(null);
+            List<object> courses = new List<object>();
+
+            foreach (Department d in query)
+            {
+                var query2 =
+                    from c in db.Course
+                    where c.DeptAbbr == d.Abbr
+                    select new
+                    {
+                        number = c.Number,
+                        cname = c.Name
+                    };
+
+                courses.Add(new { subject = d.Abbr, dname = d.Name, courses = query2.ToArray() });
+
+            }
+
+
+            return Json(courses.ToArray());
         }
 
         /// <summary>
@@ -108,8 +129,23 @@ namespace LMS.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetClassOfferings(string subject, int number)
         {
-
-            return Json(null);
+            var query =
+                from c in db.Course
+                join cl in db.Class on c.CourseId equals cl.CourseId
+                join s in db.Semester on cl.SemesterId equals s.SemesterId
+                join p in db.Professor on cl.Professor equals p.UId
+                where c.DeptAbbr == subject & c.Number == number
+                select new
+                {
+                    season = s.Season,
+                    year = s.Year,
+                    location = cl.Location,
+                    start = cl.Start,
+                    end = cl.End,
+                    fname = p.FName,
+                    lname = p.LName
+                };
+            return Json(query.ToArray());
         }
 
         /// <summary>
@@ -126,8 +162,15 @@ namespace LMS.Controllers
         /// <returns>The assignment contents</returns>
         public IActionResult GetAssignmentContents(string subject, int num, string season, int year, string category, string asgname)
         {
-
-            return Content("");
+            var query =
+                from s in db.Semester
+                join cl in db.Class on s.SemesterId equals cl.SemesterId
+                join c in db.Course on cl.CourseId equals c.CourseId
+                join ac in db.AssignmentCategory on cl.ClassId equals ac.ClassId
+                join a in db.Assignment on ac.AssnCategoryId equals a.AssnCategoryId
+                where s.Season == season & s.Year == year & c.DeptAbbr == subject & c.Number == num & ac.Name == category & a.Name == asgname
+                select a.Contents;
+            return Content(query.FirstOrDefault());
         }
 
 
