@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using LMS.Models.LMSModels;
-using LMS.Models.LMSModels.Submission;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -105,21 +104,27 @@ namespace LMS.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetAssignmentsInClass(string subject, int num, string season, int year, string uid)
         {
+
             var query =
-                from s in db.Semester
-                join cl in db.Class on s.SemesterId equals cl.SemesterId
+
+               
+                from a in db.Assignment
+                join sb in db.Submission on a.AssnId equals sb.AssnId into sub
+
+                from q1 in sub.DefaultIfEmpty()
+                join ac in db.AssignmentCategory on a.AssnCategoryId equals ac.AssnCategoryId
+                join cl in db.Class on ac.ClassId equals cl.ClassId
                 join c in db.Course on cl.CourseId equals c.CourseId
-                join ac in db.AssignmentCategory on cl.ClassId equals ac.ClassId
-                join a in db.Assignment on ac.AssnCategoryId equals a.AssnCategoryId
                 join e in db.Enrolled on cl.ClassId equals e.ClassId
-                join sub in db.Submission on a.AssnId equals sub.AssnId
+                join s in db.Semester on cl.SemesterId equals s.SemesterId
+
                 where s.Year == year & s.Season == season & c.DeptAbbr == subject & c.Number == num & e.SId == uid
                 select new
                 {
                     aname = a.Name,
                     cname = ac.Name,
                     due = a.DueDate,
-                    score = sub.Score
+                    score = q1 == null ? null : (decimal?)q1.Score
                 };
 
             return Json(query.ToArray());
@@ -148,11 +153,61 @@ namespace LMS.Controllers
         public IActionResult SubmitAssignmentText(string subject, int num, string season, int year,
           string category, string asgname, string uid, string contents)
         {
+
+
+            var query =
+                from s in db.Semester
+                join cl in db.Class on s.SemesterId equals cl.SemesterId
+                join c in db.Course on cl.CourseId equals c.CourseId
+                join ac in db.AssignmentCategory on cl.ClassId equals ac.ClassId
+                join a in db.Assignment on ac.AssnCategoryId equals a.AssnCategoryId
+                where s.Season == season & s.Year == year & c.DeptAbbr == subject & c.Number == num & ac.Name == category & a.Name == asgname
+                select a.AssnId;
+
+            
+
+            //doesn't work if the is a '#' sign in the assignment name....
             Submission newSub = new Submission();
+            newSub.SId = uid;
+            newSub.Time = DateTime.Now;
+            newSub.Score = 0;
+            newSub.Contents = contents;
+            newSub.AssnId = query.ToArray()[0];
+
+            
+
+            try
+            {
+                db.Submission.Add(newSub);
+                db.SaveChanges();
+            }
+            catch (Exception e)
+            {
+                db.Submission.Remove(newSub);
+                var query2 =
+                      from s in db.Semester
+                      join cl in db.Class on s.SemesterId equals cl.SemesterId
+                      join c in db.Course on cl.CourseId equals c.CourseId
+                      join ac in db.AssignmentCategory on cl.ClassId equals ac.ClassId
+                      join a in db.Assignment on ac.AssnCategoryId equals a.AssnCategoryId
+                      join sb in db.Submission on a.AssnId equals sb.AssnId
+                      where s.Season == season & s.Year == year & c.DeptAbbr == subject & c.Number == num & ac.Name == category & a.Name == asgname & sb.SId == uid
+                      select sb;
+
+                foreach(Submission sub in query2)
+                {
+                    sub.Time = DateTime.Now;
+                    sub.Contents = contents;
+                }
+
+                db.SaveChanges();
+
+            }
 
 
 
-            return Json(new { success = false });
+
+            return Json(new { success = true });
         }
 
 
