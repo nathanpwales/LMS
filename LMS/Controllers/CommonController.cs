@@ -60,6 +60,8 @@ namespace LMS.Controllers
         {
             // TODO: Do not return this hard-coded array.
 
+
+            //basic query to get all the departments
             var query =
             from dep in db.Department
             select new
@@ -88,14 +90,18 @@ namespace LMS.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetCatalog()
         {
+
+            // get every department
             var query =
                 from d in db.Department
                 select d;
-
+            
+            // list to be turned into json
             List<object> courses = new List<object>();
 
             foreach (Department d in query)
             {
+                //for each department, grab all of the classes in it
                 var query2 =
                     from c in db.Course
                     where c.DeptAbbr == d.Abbr
@@ -105,11 +111,12 @@ namespace LMS.Controllers
                         cname = c.Name
                     };
 
+                //add to result list the abbr, the name, and the list of courses
                 courses.Add(new { subject = d.Abbr, dname = d.Name, courses = query2.ToArray() });
 
             }
 
-
+            //return the result
             return Json(courses.ToArray());
         }
 
@@ -129,6 +136,7 @@ namespace LMS.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetClassOfferings(string subject, int number)
         {
+            //simple query to get offerings of the classes
             var query =
                 from c in db.Course
                 join cl in db.Class on c.CourseId equals cl.CourseId
@@ -162,6 +170,7 @@ namespace LMS.Controllers
         /// <returns>The assignment contents</returns>
         public IActionResult GetAssignmentContents(string subject, int num, string season, int year, string category, string asgname)
         {
+            //simple query to get the assignment contents
             var query =
                 from s in db.Semester
                 join cl in db.Class on s.SemesterId equals cl.SemesterId
@@ -190,6 +199,7 @@ namespace LMS.Controllers
         /// <returns>The submission text</returns>
         public IActionResult GetSubmissionText(string subject, int num, string season, int year, string category, string asgname, string uid)
         {
+            //simple query to get contents of submission
             var query =
                 from sb in db.Submission
                 join a in db.Assignment on sb.AssnId equals a.AssnId
@@ -202,6 +212,7 @@ namespace LMS.Controllers
 
             string content = "";
 
+            // if we have content grab it
             if (query.Count() == 1)
             {
                 content = query.First();
@@ -229,6 +240,8 @@ namespace LMS.Controllers
         /// </returns>
         public IActionResult GetUser(string uid)
         {
+
+            //query to see if it is a student
             var queryStudents =
                 from s in db.Student
                 join d in db.Department on s.Major equals d.Abbr
@@ -240,11 +253,13 @@ namespace LMS.Controllers
                     uid = s.SId,
                     department = d.Name
                 };
+            //if student, return
             if (queryStudents.Count() > 0)
                 return Json(queryStudents.First());
 
             else
             {
+                //query to see if it is a professor
                 var queryProfessor =
                     from p in db.Professor
                     join d in db.Department on p.DeptAbbr equals d.Abbr
@@ -256,8 +271,11 @@ namespace LMS.Controllers
                         uid = p.UId,
                         department = d.Name
                     };
+                //if its a professor, retuurn
                 if (queryProfessor.Count() > 0)
                     return Json(queryProfessor.First());
+
+                //query to see if admin
                 else
                 {
                     var queryAdmin =
@@ -269,12 +287,13 @@ namespace LMS.Controllers
                             lname = a.LName,
                             uid = a.UId
                         };
+                    //return if admin
                     if (queryAdmin.Count() > 0)
                         return Json(queryAdmin.First());
                 }
             }
 
-
+            //it failed
             return Json(new { success = false });
         }
 

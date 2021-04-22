@@ -69,6 +69,7 @@ namespace LMS.Controllers
         public IActionResult GetMyClasses(string uid)
         {
 
+            //query to get classes for a student based on uid
             var query =
                 from e in db.Enrolled
                 join cl in db.Class on e.ClassId equals cl.ClassId
@@ -105,12 +106,15 @@ namespace LMS.Controllers
         public IActionResult GetAssignmentsInClass(string subject, int num, string season, int year, string uid)
         {
 
+            //query for student to see all the assignments
             var query =
 
                
+                //this invovled a left join so if the student hadn't submited yet we can mathc that to null instead of excluding it
                 from a in db.Assignment
                 join sb in db.Submission on a.AssnId equals sb.AssnId into sub
 
+                //otherwise a straightforward query
                 from q1 in sub.DefaultIfEmpty()
                 join ac in db.AssignmentCategory on a.AssnCategoryId equals ac.AssnCategoryId
                 join cl in db.Class on ac.ClassId equals cl.ClassId
@@ -154,7 +158,7 @@ namespace LMS.Controllers
           string category, string asgname, string uid, string contents)
         {
 
-
+            // query to get the assignment id
             var query =
                 from s in db.Semester
                 join cl in db.Class on s.SemesterId equals cl.SemesterId
@@ -166,7 +170,7 @@ namespace LMS.Controllers
 
             
 
-            //doesn't work if the is a '#' sign in the assignment name....
+            //create a new submission
             Submission newSub = new Submission();
             newSub.SId = uid;
             newSub.Time = DateTime.Now;
@@ -175,7 +179,7 @@ namespace LMS.Controllers
             newSub.AssnId = query.ToArray()[0];
 
             
-
+            //try to insert it
             try
             {
                 db.Submission.Add(newSub);
@@ -183,6 +187,8 @@ namespace LMS.Controllers
             }
             catch (Exception e)
             {
+                //if it fails, it already exists
+                //remove the attempt, then find the old submission
                 db.Submission.Remove(newSub);
                 var query2 =
                       from s in db.Semester
@@ -194,6 +200,7 @@ namespace LMS.Controllers
                       where s.Season == season & s.Year == year & c.DeptAbbr == subject & c.Number == num & ac.Name == category & a.Name == asgname & sb.SId == uid
                       select sb;
 
+                //update the old submission
                 foreach(Submission sub in query2)
                 {
                     sub.Time = DateTime.Now;
