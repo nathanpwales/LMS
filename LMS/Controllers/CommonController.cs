@@ -190,8 +190,24 @@ namespace LMS.Controllers
         /// <returns>The submission text</returns>
         public IActionResult GetSubmissionText(string subject, int num, string season, int year, string category, string asgname, string uid)
         {
+            var query =
+                from sb in db.Submission
+                join a in db.Assignment on sb.AssnId equals a.AssnId
+                join ac in db.AssignmentCategory on a.AssnCategoryId equals ac.AssnCategoryId
+                join cl in db.Class on ac.ClassId equals cl.ClassId
+                join cr in db.Course on cl.CourseId equals cr.CourseId
+                join sm in db.Semester on cl.SemesterId equals sm.SemesterId
+                where cr.DeptAbbr == subject && cr.Number == num && sm.Season == season && sm.Year == year && ac.Name == category && a.Name == asgname && sb.SId == uid
+                select sb.Contents;
 
-            return Content("");
+            string content = "";
+
+            if (query.Count() == 1)
+            {
+                content = query.First();
+            }
+
+            return Content(content);
         }
 
 
@@ -213,6 +229,51 @@ namespace LMS.Controllers
         /// </returns>
         public IActionResult GetUser(string uid)
         {
+            var queryStudents =
+                from s in db.Student
+                join d in db.Department on s.Major equals d.Abbr
+                where s.SId == uid
+                select new
+                {
+                    fname = s.FName,
+                    lname = s.LName,
+                    uid = s.SId,
+                    department = d.Name
+                };
+            if (queryStudents.Count() > 0)
+                return Json(queryStudents.First());
+
+            else
+            {
+                var queryProfessor =
+                    from p in db.Professor
+                    join d in db.Department on p.DeptAbbr equals d.Abbr
+                    where p.UId == uid
+                    select new
+                    {
+                        fname = p.FName,
+                        lname = p.LName,
+                        uid = p.UId,
+                        department = d.Name
+                    };
+                if (queryProfessor.Count() > 0)
+                    return Json(queryProfessor.First());
+                else
+                {
+                    var queryAdmin =
+                        from a in db.Admin
+                        where a.UId == uid
+                        select new
+                        {
+                            fname = a.FName,
+                            lname = a.LName,
+                            uid = a.UId
+                        };
+                    if (queryAdmin.Count() > 0)
+                        return Json(queryAdmin.First());
+                }
+            }
+
 
             return Json(new { success = false });
         }
