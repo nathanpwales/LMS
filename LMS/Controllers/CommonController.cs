@@ -188,33 +188,33 @@ namespace LMS.Controllers
         {
             var queryStudents =
                 from s in db.Student
-                join c in db.Course on s.Major equals c.DeptAbbr
+                join d in db.Department on s.Major equals d.Abbr
                 where s.SId == uid
                 select new
                 {
                     fname = s.FName,
                     lname = s.LName,
                     uid = s.SId,
-                    department = c.Name
+                    department = d.Name
                 };
-            if (queryStudents.Count() == 1)
-                return Json(queryStudents.ToArray());
+            if (queryStudents.Count() > 0)
+                return Json(queryStudents.First());
 
             else
             {
                 var queryProfessor =
                     from p in db.Professor
-                    join c in db.Course on p.DeptAbbr equals c.DeptAbbr
+                    join d in db.Department on p.DeptAbbr equals d.Abbr
                     where p.UId == uid
                     select new
                     {
                         fname = p.FName,
                         lname = p.LName,
                         uid = p.UId,
-                        department = c.Name
+                        department = d.Name
                     };
-                if (queryProfessor.Count() == 1)
-                    return Json(queryProfessor.ToArray());
+                if (queryProfessor.Count() > 0)
+                    return Json(queryProfessor.First());
                 else
                 {
                     var queryAdmin =
@@ -226,8 +226,8 @@ namespace LMS.Controllers
                             lname = a.LName,
                             uid = a.UId
                         };
-                    if (queryAdmin.Count() == 1)
-                        return Json(queryAdmin.ToArray());
+                    if (queryAdmin.Count() > 0)
+                        return Json(queryAdmin.First());
                 }
             }
 
