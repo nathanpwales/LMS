@@ -164,20 +164,45 @@ namespace LMS.Controllers
                 where s.Season == season & s.Year == year & c.DeptAbbr == subject & c.Number == num & ac.Name == category & a.Name == asgname
                 select a.AssnId;
 
-            System.Diagnostics.Debug.WriteLine(asgname);
-            foreach (var v in query)
-            {
-                System.Diagnostics.Debug.WriteLine(v.ToString());
-            }
             
 
-
+            //doesn't work if the is a '#' sign in the assignment name....
             Submission newSub = new Submission();
             newSub.SId = uid;
             newSub.Time = DateTime.Now;
             newSub.Score = 0;
             newSub.Contents = contents;
             newSub.AssnId = query.ToArray()[0];
+
+            
+
+            try
+            {
+                db.Submission.Add(newSub);
+                db.SaveChanges();
+            }
+            catch (Exception e)
+            {
+                db.Submission.Remove(newSub);
+                var query2 =
+                      from s in db.Semester
+                      join cl in db.Class on s.SemesterId equals cl.SemesterId
+                      join c in db.Course on cl.CourseId equals c.CourseId
+                      join ac in db.AssignmentCategory on cl.ClassId equals ac.ClassId
+                      join a in db.Assignment on ac.AssnCategoryId equals a.AssnCategoryId
+                      join sb in db.Submission on a.AssnId equals sb.AssnId
+                      where s.Season == season & s.Year == year & c.DeptAbbr == subject & c.Number == num & ac.Name == category & a.Name == asgname & sb.SId == uid
+                      select sb;
+
+                foreach(Submission sub in query2)
+                {
+                    sub.Time = DateTime.Now;
+                    sub.Contents = contents;
+                }
+
+                db.SaveChanges();
+
+            }
 
 
 
