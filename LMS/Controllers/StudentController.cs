@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using LMS.Models.LMSModels;
-using LMS.Models.LMSModels.Submission;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -148,11 +147,36 @@ namespace LMS.Controllers
         public IActionResult SubmitAssignmentText(string subject, int num, string season, int year,
           string category, string asgname, string uid, string contents)
         {
+
+
+            var query =
+                from s in db.Semester
+                join cl in db.Class on s.SemesterId equals cl.SemesterId
+                join c in db.Course on cl.CourseId equals c.CourseId
+                join ac in db.AssignmentCategory on cl.ClassId equals ac.ClassId
+                join a in db.Assignment on ac.AssnCategoryId equals a.AssnCategoryId
+                where s.Season == season & s.Year == year & c.DeptAbbr == subject & c.Number == num & ac.Name == category & a.Name == asgname
+                select a.AssnId;
+
+            System.Diagnostics.Debug.WriteLine(asgname);
+            foreach (var v in query)
+            {
+                System.Diagnostics.Debug.WriteLine(v.ToString());
+            }
+            
+
+
             Submission newSub = new Submission();
+            newSub.SId = uid;
+            newSub.Time = DateTime.Now;
+            newSub.Score = 0;
+            newSub.Contents = contents;
+            newSub.AssnId = query.ToArray()[0];
 
 
 
-            return Json(new { success = false });
+
+            return Json(new { success = true });
         }
 
 
