@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using LMS.Models.LMSModels;
-using LMS.Models.LMSModels.Submission;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -168,7 +167,33 @@ namespace LMS.Controllers
         /// false if the student is already enrolled in the Class.</returns>
         public IActionResult Enroll(string subject, int num, string season, int year, string uid)
         {
+            // Query db for ClassID from given Course(subject/num) and Semester(season/year)
+            var query =
+                from cl in db.Class
+                join cr in db.Course on cl.CourseId equals cr.CourseId
+                join sm in db.Semester on cl.SemesterId equals sm.SemesterId
+                where cr.DeptAbbr == subject && cr.Number == num && sm.Season == season && sm.Year == year
+                select cl.ClassId;
 
+            uint classID = query.First();
+
+            Enrolled newEnroll = new Enrolled();
+            newEnroll.ClassId = classID;
+            newEnroll.SId = uid;
+            newEnroll.Grade = "--";
+
+            // try adding the new enrolled info to the db. Only return true if the changes are applied successfully.
+            try
+            {
+                db.Enrolled.Add(newEnroll);
+                db.SaveChanges();
+                return Json(new { success = true });
+            }
+            catch (Exception e)
+            {
+                System.Diagnostics.Debug.WriteLine(e.Message);
+            }
+                
             return Json(new { success = false });
         }
 
@@ -180,15 +205,81 @@ namespace LMS.Controllers
         /// Assume all classes are 4 credit hours.
         /// If a student does not have a grade in a class ("--"), that class is not counted in the average.
         /// If a student does not have any grades, they have a GPA of 0.0.
-        /// Otherwise, the point-value of a letter grade is determined by the table on this page:
+        /// Otherwise, the point-value of a letter grade is determined by the table on this page
         /// https://advising.utah.edu/academic-standards/gpa-calculator-new.php
         /// </summary>
         /// <param name="uid">The uid of the student</param>
         /// <returns>A JSON object containing a single field called "gpa" with the number value</returns>
         public IActionResult GetGPA(string uid)
         {
+            double credits = 0.0;
+            int classCount = 0;
+            var query =
+                from st in db.Student
+                join e in db.Enrolled on st.SId equals e.SId
+                where st.SId == uid
+                select e.Grade;
+            
+            // For each grade, interpret letter grade as point value.
+            // increment class count for all grades except '--'.
+            // Stores point value in variable "credits"
+            foreach (string grade in query)
+            {
+                switch(grade)
+                {
+                    case "A":
+                        credits += 4;
+                        break;
+                    case "A-":
+                        credits += 3.7;
+                        break;
+                    case "B+":
+                        credits += 3.3;
+                        break;
+                    case "B":
+                        credits += 3;
+                        break;
+                    case "B-":
+                        credits += 2.7;
+                        break;
+                    case "C+":
+                        credits += 2.3;
+                        break;
+                    case "C":
+                        credits += 2;
+                        break;
+                    case "C-":
+                        credits += 1.7;
+                        break;
+                    case "D+":
+                        credits += 1.3;
+                        break;
+                    case "D":
+                        credits += 1;
+                        break;
+                    case "D-":
+                        credits += 0.7;
+                        break;
+                    case "E":
+                        credits += 0;
+                        break;
+                    default:
+                        // do not count this class in the class count.
+                        // Decrement because it will be incremented below for all cases.
+                        classCount--;
+                        break;
+                }
+                classCount++;
+            }
 
-            return Json(null);
+            // format return type. If statement to avoid division by zero.
+            string GradePointAvg;
+            if (classCount > 0)
+                GradePointAvg = (credits / classCount).ToString();
+            else
+                GradePointAvg = credits.ToString();
+
+            return Json(new { gpa = GradePointAvg});
         }
 
         /*******End code to modify********/
