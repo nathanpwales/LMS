@@ -104,21 +104,27 @@ namespace LMS.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetAssignmentsInClass(string subject, int num, string season, int year, string uid)
         {
+
             var query =
-                from s in db.Semester
-                join cl in db.Class on s.SemesterId equals cl.SemesterId
+
+               
+                from a in db.Assignment
+                join sb in db.Submission on a.AssnId equals sb.AssnId into sub
+
+                from q1 in sub.DefaultIfEmpty()
+                join ac in db.AssignmentCategory on a.AssnCategoryId equals ac.AssnCategoryId
+                join cl in db.Class on ac.ClassId equals cl.ClassId
                 join c in db.Course on cl.CourseId equals c.CourseId
-                join ac in db.AssignmentCategory on cl.ClassId equals ac.ClassId
-                join a in db.Assignment on ac.AssnCategoryId equals a.AssnCategoryId
                 join e in db.Enrolled on cl.ClassId equals e.ClassId
-                join sub in db.Submission on a.AssnId equals sub.AssnId
+                join s in db.Semester on cl.SemesterId equals s.SemesterId
+
                 where s.Year == year & s.Season == season & c.DeptAbbr == subject & c.Number == num & e.SId == uid
                 select new
                 {
                     aname = a.Name,
                     cname = ac.Name,
                     due = a.DueDate,
-                    score = sub.Score
+                    score = q1 == null ? null : (decimal?)q1.Score
                 };
 
             return Json(query.ToArray());
