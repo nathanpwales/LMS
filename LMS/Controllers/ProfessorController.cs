@@ -400,7 +400,12 @@ namespace LMS.Controllers
                 join sb in db.Submission on ag.AssnId equals sb.AssnId
                 join sm in db.Semester on cl.SemesterId equals sm.SemesterId
                 where cr.DeptAbbr == subject && cr.Number == num && sm.Season == season && sm.Year == year && ac.Name == category && ag.Name == asgname && st.SId == uid
-                select sb;
+                select new
+                {
+                    subm = sb,
+                    cID = cl.ClassId
+                };
+
 
 
             // if this submission was not found, or if duplicate submissions are found, return false.
@@ -410,9 +415,10 @@ namespace LMS.Controllers
             }
 
             // Update score to score given as method parameter
-            foreach (Submission submission in query)
+            foreach (var v in query)
             {
-                submission.Score = (uint)score;
+                v.subm.Score = (uint)score;
+                UpdateOverallGrade(v.cID, uid);
             }
 
             // only return true if changes save successfully.
@@ -463,6 +469,83 @@ namespace LMS.Controllers
             return Json(query.ToArray());
         }
 
+        private void UpdateOverallGrade(uint classId, string uid)
+        {
+            var query =
+
+                from a in db.Assignment
+                join sb in db.Submission on a.AssnId equals sb.AssnId into sub
+
+                from q1 in sub.DefaultIfEmpty()
+                join ac in db.AssignmentCategory on a.AssnCategoryId equals ac.AssnCategoryId
+                join e in db.Enrolled on ac.ClassId equals e.ClassId
+                where e.SId == uid & ac.ClassId == classId
+                select new
+                { 
+                    enrollment = e,
+                    catName = ac.Name,
+                    catWeight = ac.Weight,
+                    maxPoints = a.MaxPoints,
+                    points = q1 == null ? null: (uint?)q1.Score,
+
+                };
+
+            Dictionary<string, uint> totalCatPoints = new Dictionary<string, uint>();
+            Dictionary<string, uint?> earnedCatPoints = new Dictionary<string, uint?>();
+            Dictionary<string, uint> catWeights = new Dictionary<string, uint>();
+
+            uint catSum = 0;
+
+            foreach(var v in query)
+            {
+                if(!catWeights.ContainsKey(v.catName))
+                {
+                    catWeights.Add(v.catName, v.catWeight);
+                    catSum += v.catWeight;
+                }
+
+                if(totalCatPoints.ContainsKey(v.catName))
+                {
+                    totalCatPoints[v.catName] += v.maxPoints;
+                }
+                else
+                {
+                    totalCatPoints.Add(v.catName, v.maxPoints);
+                }
+
+                if (earnedCatPoints.ContainsKey(v.catName))
+                {
+                    if(v.points != null)
+                        earnedCatPoints[v.catName] += v.points;
+                }
+                else
+                {
+                    if(v.points != null)
+                        earnedCatPoints.Add(v.catName, v.points);
+                    else
+                        earnedCatPoints.Add(v.catName, 0);
+                    
+                }
+
+            }
+
+            Dictionary<string, decimal?> catPercents = new Dictionary<string, decimal?>();
+
+            foreach( KeyValuePair <string, uint> v in totalCatPoints )
+            {
+
+                catPercents.Add(v.Key, earnedCatPoints[v.Key] / (decimal?)totalCatPoints[v.Key]);
+            }
+
+            decimal? sum = 0;
+
+            foreach (KeyValuePair<string, decimal?> v in catPercents)
+            {
+                sum += v.Value * (catWeights[v.Key] / catSum);
+            }
+
+
+        }
 
         /*******End code to modify********/
 
