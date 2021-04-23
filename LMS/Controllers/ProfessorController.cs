@@ -579,7 +579,7 @@ namespace LMS.Controllers
             }
 
             sum *= 100; //account for our stupdity, make it between 0 and 100
-            System.Diagnostics.Debug.WriteLine(sum);
+
             string letterGrade = "E";
 
             if (sum >= 93)
