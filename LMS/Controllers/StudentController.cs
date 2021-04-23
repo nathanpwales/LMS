@@ -106,32 +106,35 @@ namespace LMS.Controllers
         public IActionResult GetAssignmentsInClass(string subject, int num, string season, int year, string uid)
         {
 
-            //query for student to see all the assignments
-            var query =
 
-               
-                //this invovled a left join so if the student hadn't submited yet we can mathc that to null instead of excluding it
+            var query1 =
                 from a in db.Assignment
-                join sb in db.Submission on a.AssnId equals sb.AssnId into sub
-
-                //otherwise a straightforward query
-                from q1 in sub.DefaultIfEmpty()
                 join ac in db.AssignmentCategory on a.AssnCategoryId equals ac.AssnCategoryId
                 join cl in db.Class on ac.ClassId equals cl.ClassId
                 join c in db.Course on cl.CourseId equals c.CourseId
-                join e in db.Enrolled on cl.ClassId equals e.ClassId
                 join s in db.Semester on cl.SemesterId equals s.SemesterId
-
-                where s.Year == year & s.Season == season & c.DeptAbbr == subject & c.Number == num & e.SId == uid
+                where c.DeptAbbr == subject & c.Number == num & s.Season == season & s.Year == year
                 select new
                 {
-                    aname = a.Name,
-                    cname = ac.Name,
-                    due = a.DueDate,
-                    score = q1 == null ? null : (decimal?)q1.Score
+                    assignment = a,
+                    category = ac
                 };
 
-            return Json(query.ToArray());
+            var query2 =
+                from q in query1  // query1 holds the assignments for the class
+                join s in db.Submission
+                on new { A = q.assignment.AssnId, B = uid } equals new { A = s.AssnId, B = s.SId }
+                into joined
+                from j in joined.DefaultIfEmpty()
+                select new
+                {
+                    aname = q.assignment.Name,
+                    cname = q.category.Name,
+                    due = q.assignment.DueDate,
+                    score = j == null ? null : (decimal?)j.Score
+                };
+
+            return Json(query2.ToArray());
         }
 
 
