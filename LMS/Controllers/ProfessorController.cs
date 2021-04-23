@@ -429,13 +429,9 @@ namespace LMS.Controllers
             {
                 // Update score to score given as method parameter
                 query.First().subm.Score = (uint)score;
-                System.Diagnostics.Debug.WriteLine("yo");
                 db.SaveChanges();
-                System.Diagnostics.Debug.WriteLine("yooo");
                 UpdateOverallGrade(query.First().cID, uid);
-                System.Diagnostics.Debug.WriteLine("yeet");
                 db.SaveChanges();
-                System.Diagnostics.Debug.WriteLine("yaga");
                 return Json(new { success = true });
             }
             catch (Exception e)
@@ -482,25 +478,35 @@ namespace LMS.Controllers
 
         private void UpdateOverallGrade(uint classId, string uid)
         {
-            // query to get info needed
-            var query =
 
+            var query1 =
                 from a in db.Assignment
-                join sb in db.Submission on a.AssnId equals sb.AssnId into sub
-
-                from q1 in sub.DefaultIfEmpty()
                 join ac in db.AssignmentCategory on a.AssnCategoryId equals ac.AssnCategoryId
-                join e in db.Enrolled on ac.ClassId equals e.ClassId
-                where e.SId == uid & ac.ClassId == classId
+                join cl in db.Class on ac.ClassId equals cl.ClassId
+                join c in db.Course on cl.CourseId equals c.CourseId
+                where cl.ClassId == classId
                 select new
                 {
-                    enrollment = e,
-                    catName = ac.Name,
-                    catWeight = ac.Weight,
-                    maxPoints = a.MaxPoints,
-                    points = q1 == null ? null : (uint?)q1.Score,
-
+                    assignment = a,
+                    category = ac
                 };
+
+            var query2 =
+                from q in query1  // query1 holds the assignments for the class
+                join s in db.Submission
+                on new { A = q.assignment.AssnId, B = uid } equals new { A = s.AssnId, B = s.SId }
+                into joined
+                from j in joined.DefaultIfEmpty()
+                join e in db.Enrolled on q.category.ClassId equals e.ClassId
+                select new
+                {
+                    assignment = q.assignment,
+                    category = q.category,
+                    enrollment = e,
+                    score = j == null ? null : (uint?)j.Score
+                };
+
+            
 
             // dictionary to keep track of all points in category
             Dictionary<string, uint> totalCatPoints = new Dictionary<string, uint>();
@@ -516,37 +522,37 @@ namespace LMS.Controllers
             uint catSum = 0;
 
             //add up the sum points of each category, the points earned in each category, and keep track of the weight (fill in the dictionary)
-            foreach (var v in query)
+            foreach (var v in query2)
             {
                 //add weight to dictionary
-                if (!catWeights.ContainsKey(v.catName))
+                if (!catWeights.ContainsKey(v.category.Name))
                 {
-                    catWeights.Add(v.catName, v.catWeight);
-                    catSum += v.catWeight;
+                    catWeights.Add(v.category.Name, v.category.Weight);
+                    catSum += v.category.Weight;
                 }
 
                 //sum total points in each category
-                if (totalCatPoints.ContainsKey(v.catName))
+                if (totalCatPoints.ContainsKey(v.category.Name))
                 {
-                    totalCatPoints[v.catName] += v.maxPoints;
+                    totalCatPoints[v.category.Name] += v.assignment.MaxPoints;
                 }
                 else
                 {
-                    totalCatPoints.Add(v.catName, v.maxPoints);
+                    totalCatPoints.Add(v.category.Name, v.assignment.MaxPoints);
                 }
 
                 //sum earned points in each category 
-                if (earnedCatPoints.ContainsKey(v.catName))
+                if (earnedCatPoints.ContainsKey(v.category.Name))
                 {
-                    if (v.points != null)
-                        earnedCatPoints[v.catName] += v.points;
+                    if (v.score != null)
+                        earnedCatPoints[v.category.Name] += v.score;
                 }
                 else
                 {
-                    if (v.points != null)
-                        earnedCatPoints.Add(v.catName, v.points);
+                    if (v.score != null)
+                        earnedCatPoints.Add(v.category.Name, v.score);
                     else
-                        earnedCatPoints.Add(v.catName, 0);
+                        earnedCatPoints.Add(v.category.Name, 0);
 
                 }
 
@@ -572,7 +578,8 @@ namespace LMS.Controllers
                     
             }
 
-            sum *= 100; //account for our stupdity, make it between 0 and 1000
+            sum *= 100; //account for our stupdity, make it between 0 and 100
+            System.Diagnostics.Debug.WriteLine(sum);
             string letterGrade = "E";
 
             if (sum >= 93)
