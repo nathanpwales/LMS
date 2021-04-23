@@ -410,14 +410,12 @@ namespace LMS.Controllers
                 join ag in db.Assignment on ac.AssnCategoryId equals ag.AssnCategoryId
                 join sb in db.Submission on ag.AssnId equals sb.AssnId
                 join sm in db.Semester on cl.SemesterId equals sm.SemesterId
-                where cr.DeptAbbr == subject && cr.Number == num && sm.Season == season && sm.Year == year && ac.Name == category && ag.Name == asgname && st.SId == uid
+                where cr.DeptAbbr == subject && cr.Number == num && sm.Season == season && sm.Year == year && ac.Name == category && ag.Name == asgname && sb.SId == uid && st.SId == uid
                 select new
                 {
                     subm = sb,
                     cID = cl.ClassId
                 };
-
-
 
             // if this submission was not found, or if duplicate submissions are found, return false.
             if (query.ToArray().Length != 1)
@@ -425,16 +423,19 @@ namespace LMS.Controllers
                 return Json(new { success = false });
             }
 
-            
 
             // only return true if changes save successfully.
             try
             {
                 // Update score to score given as method parameter
                 query.First().subm.Score = (uint)score;
+                System.Diagnostics.Debug.WriteLine("yo");
                 db.SaveChanges();
+                System.Diagnostics.Debug.WriteLine("yooo");
                 UpdateOverallGrade(query.First().cID, uid);
+                System.Diagnostics.Debug.WriteLine("yeet");
                 db.SaveChanges();
+                System.Diagnostics.Debug.WriteLine("yaga");
                 return Json(new { success = true });
             }
             catch (Exception e)
