@@ -498,6 +498,7 @@ namespace LMS.Controllers
                 into joined
                 from j in joined.DefaultIfEmpty()
                 join e in db.Enrolled on q.category.ClassId equals e.ClassId
+                where e.SId == uid
                 select new
                 {
                     assignment = q.assignment,
@@ -546,6 +547,7 @@ namespace LMS.Controllers
                 {
                     if (v.score != null)
                         earnedCatPoints[v.category.Name] += v.score;
+
                 }
                 else
                 {
