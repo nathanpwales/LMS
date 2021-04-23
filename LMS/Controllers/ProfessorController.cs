@@ -608,7 +608,7 @@ namespace LMS.Controllers
                 letterGrade = "E";
 
             //update the grade
-            Enrolled newEnroll = query.First().enrollment;
+            Enrolled newEnroll = query2.First().enrollment;
 
             newEnroll.Grade = letterGrade;
 
